@@ -1,9 +1,15 @@
 const express = require('express')
 const app = express()
+const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const dotenv = require('dotenv');
 dotenv.config();
 const PORT = process.env.PORT || 4000;
+
+
+// Middleware
+app.use(cors());
+app.use(express.json());
 
 const uri = process.env.DATABASE_URL;
 
@@ -19,12 +25,25 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         await client.connect();
+        const db = client.db("petsdata");
+        const allPetsCollection = db.collection("allpets");
+
+        // find all pets
+        app.get('/all-pets', async (req, res) => {
+            try {
+                const pets = await allPetsCollection.find({}).toArray();
+                res.json(pets);
+            } catch (error) {
+                console.error("Error fetching pets:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
-
+        // Ensures that the client will close when it is finished with the server
     }
 }
 run().catch(console.dir);
