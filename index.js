@@ -39,6 +39,7 @@ async function run() {
             }
         });
 
+        // find pet by id
         app.get('/all-pets/:petId', async (req, res) => {
             const { petId } = req.params;
             const pet = await allPetsCollection.findOne({ _id: new ObjectId(petId) });
@@ -46,6 +47,28 @@ async function run() {
                 return res.status(404).json({ error: "Pet not found" });
             }
             res.json(pet);
+        });
+
+        // Request to adopt a pet
+        app.post('/adopt-pet', async (req, res) => {
+            const { name, username, email, message, date, statReq, petId, userId } = req.body;
+            const adoptionRequest = {
+                name,
+                username,
+                email,
+                message,
+                date,
+                statReq,
+                petId,
+                userId,
+            };
+            try {
+                const result = await db.collection("adoptionRequests").insertOne(adoptionRequest);
+                res.status(201).json({ message: "Adoption request submitted successfully", requestId: result.insertedId });
+            } catch (error) {
+                console.error("Error submitting adoption request:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
         });
 
         // Send a ping to confirm a successful connection
