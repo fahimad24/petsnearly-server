@@ -49,6 +49,20 @@ async function run() {
             res.json(pet);
         });
 
+        // pet status update
+        app.patch('/all-pets/:petId', async (req, res) => {
+            const { petId } = req.params;
+            const { status } = req.body;
+            const result = await allPetsCollection.updateOne(
+                { _id: new ObjectId(petId) },
+                { $set: { status } }
+            );
+            if (result.matchedCount === 0) {
+                return res.status(404).json({ error: "Pet not found" });
+            }
+            res.json({ message: "Pet status updated successfully" });
+        });
+
         // Request to adopt a pet
         app.post('/adopt-pet', async (req, res) => {
             const { name, username, email, message, date, statReq, petId, userId } = req.body;
@@ -67,6 +81,16 @@ async function run() {
                 res.status(201).json({ message: "Adoption request submitted successfully", requestId: result.insertedId });
             } catch (error) {
                 console.error("Error submitting adoption request:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+        // get all adoption requests
+        app.get('/adopt-pet', async (req, res) => {
+            try {
+                const requests = await db.collection("adoptionRequests").find({}).toArray();
+                res.json(requests);
+            } catch (error) {
+                console.error("Error fetching adoption requests:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
