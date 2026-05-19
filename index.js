@@ -1,7 +1,7 @@
 const express = require('express')
 const app = express()
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const dotenv = require('dotenv');
 dotenv.config();
 const PORT = process.env.PORT || 4000;
@@ -37,6 +37,15 @@ async function run() {
                 console.error("Error fetching pets:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
+        });
+
+        app.get('/all-pets/:petId', async (req, res) => {
+            const { petId } = req.params;
+            const pet = await allPetsCollection.findOne({ _id: new ObjectId(petId) });
+            if (!pet) {
+                return res.status(404).json({ error: "Pet not found" });
+            }
+            res.json(pet);
         });
 
         // Send a ping to confirm a successful connection
