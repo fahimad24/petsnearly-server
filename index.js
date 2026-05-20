@@ -53,7 +53,22 @@ async function run() {
             }
         });
 
-        // find pet by id
+        // delete from all pets collection
+        app.delete('/all-pets/:petId', async (req, res) => {
+            const { petId } = req.params;
+            try {
+                const result = await allPetsCollection.deleteOne({ _id: new ObjectId(petId) });
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ error: "Pet not found" });
+                }
+                res.json({ message: "Pet deleted successfully" });
+            } catch (error) {
+                console.error("Error deleting pet:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+
+        // find one pet by id
         app.get('/all-pets/:petId', async (req, res) => {
             const { petId } = req.params;
             const pet = await allPetsCollection.findOne({ _id: new ObjectId(petId) });
@@ -63,13 +78,24 @@ async function run() {
             res.json(pet);
         });
 
+        // find matching pets by user id
+        app.get('/all-pets/user/:userId', async (req, res) => {
+            const { userId } = req.params;
+            const pets = await allPetsCollection.find({ userId }).toArray();
+            res.json(pets);
+        });
+
         // pet status update
         app.patch('/all-pets/:petId', async (req, res) => {
             const { petId } = req.params;
-            const { status } = req.body;
+            const updatePayload = req.body && typeof req.body === 'object' ? req.body : {};
+            const { status } = updatePayload;
+            const fieldsToUpdate = Object.keys(updatePayload).length === 1 && typeof status === 'string'
+                ? { status }
+                : updatePayload;
             const result = await allPetsCollection.updateOne(
                 { _id: new ObjectId(petId) },
-                { $set: { status } }
+                { $set: fieldsToUpdate }
             );
             if (result.matchedCount === 0) {
                 return res.status(404).json({ error: "Pet not found" });
@@ -109,6 +135,21 @@ async function run() {
                 res.json(requests);
             } catch (error) {
                 console.error("Error fetching adoption requests:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+
+        // delete adoption request
+        app.delete('/adopt-pet/:requestId', async (req, res) => {
+            const { requestId } = req.params;
+            try {
+                const result = await adoptionRequestsCollection.deleteOne({ _id: new ObjectId(requestId) });
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ error: "Adoption request not found" });
+                }
+                res.json({ message: "Adoption request deleted successfully" });
+            } catch (error) {
+                console.error("Error deleting adoption request:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
