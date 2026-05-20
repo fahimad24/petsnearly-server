@@ -31,8 +31,22 @@ async function run() {
 
         // find all pets
         app.get('/all-pets', async (req, res) => {
+            const { search, species, sortBy } = req.query;
+            console.log("Received query parameters:", { search, species, sortBy });
+            let query = {};
             try {
-                const pets = await allPetsCollection.find({}).toArray();
+                if (search) {
+                    query.petName = { $regex: search, $options: "i" };
+                }
+                if (species) {
+                    query.species = { $in: [species.toLocaleLowerCase()] };
+                }
+                let pets = await allPetsCollection.find(query).toArray();
+                if (sortBy === "fee-low-to-high") {
+                    pets.sort((a, b) => a.adoptionFee - b.adoptionFee);
+                } else if (sortBy === "fee-high-to-low") {
+                    pets.sort((a, b) => b.adoptionFee - a.adoptionFee);
+                }
                 res.json(pets);
             } catch (error) {
                 console.error("Error fetching pets:", error);
