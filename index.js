@@ -65,13 +65,14 @@ async function run() {
 
         // Request to adopt a pet
         app.post('/adopt-pet', async (req, res) => {
-            const { name, username, email, message, date, statReq, petId, userId } = req.body;
+            const { name, username, email, message, pickUpDate, requestDate, statReq, petId, userId } = req.body;
             const adoptionRequest = {
                 name,
                 username,
                 email,
                 message,
-                date,
+                pickUpDate,
+                requestDate,
                 statReq,
                 petId,
                 userId,
@@ -85,9 +86,11 @@ async function run() {
             }
         });
         // get all adoption requests
-        app.get('/adopt-pet', async (req, res) => {
+        app.get('/adopt-pet/:userId', async (req, res) => {
+            const { userId } = req.params;
+            console.log("Received userId :", userId);
             try {
-                const requests = await db.collection("adoptionRequests").find({}).toArray();
+                const requests = await db.collection("adoptionRequests").find({ userId }).toArray();
                 res.json(requests);
             } catch (error) {
                 console.error("Error fetching adoption requests:", error);
