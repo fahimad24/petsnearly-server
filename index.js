@@ -29,7 +29,7 @@ async function run() {
         const allPetsCollection = db.collection("allpets");
         const adoptionRequestsCollection = db.collection("adoptionRequests");
 
-        // find all pets
+        // get all pets with optional search, filter, and sorting
         app.get('/all-pets', async (req, res) => {
             const { search, species, sortBy } = req.query;
             console.log("Received query parameters:", { search, species, sortBy });
@@ -47,7 +47,7 @@ async function run() {
                 } else if (sortBy === "fee-high-to-low") {
                     pets.sort((a, b) => b.adoptionFee - a.adoptionFee);
                 }
-                res.json(pets);
+                res.json(pets || []);
             } catch (error) {
                 console.error("Error fetching pets:", error);
                 res.status(500).json({ error: "Internal Server Error" });
@@ -102,14 +102,10 @@ async function run() {
         // pet status update
         app.patch('/all-pets/:petId', async (req, res) => {
             const { petId } = req.params;
-            const updatePayload = req.body && typeof req.body === 'object' ? req.body : {};
-            const { status } = updatePayload;
-            const fieldsToUpdate = Object.keys(updatePayload).length === 1 && typeof status === 'string'
-                ? { status }
-                : updatePayload;
+            const updatePayload = req.body
             const result = await allPetsCollection.updateOne(
                 { _id: new ObjectId(petId) },
-                { $set: fieldsToUpdate }
+                { $set: updatePayload }
             );
             if (result.matchedCount === 0) {
                 return res.status(404).json({ error: "Pet not found" });
@@ -120,7 +116,6 @@ async function run() {
         // Request to adopt a pet
         app.post('/adopt-pet', async (req, res) => {
             const { name, username, email, message, pickUpDate, requestDate, statReq, petId, userId } = req.body;
-            console.log("Received adoption request data:", req.body);
             const adoptionRequest = {
                 name,
                 username,
@@ -140,10 +135,12 @@ async function run() {
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
+
+
+
         // get all adoption requests
         app.get('/adopt-pet/:userId', async (req, res) => {
             const { userId } = req.params;
-            console.log("Received userId :", userId);
             try {
                 const requests = await adoptionRequestsCollection.find({ userId }).toArray();
                 res.json(requests);
@@ -151,6 +148,33 @@ async function run() {
                 console.error("Error fetching adoption requests:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
+        });
+
+        // get adoption requests for a specific pet
+        app.get('/adopt-pet/pet/:petId', async (req, res) => {
+            const { petId } = req.params;
+            try {
+                const requests = await adoptionRequestsCollection.find({ petId }).toArray();
+                res.json(requests || []);
+            } catch (error) {
+                console.error("Error fetching adoption requests for pet:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+
+
+
+        app.patch('/adopt-pet/:requestId', async (req, res) => {
+            const { requestId } = req.params;
+            const updatePayload = req.body
+            const result = await adoptionRequestsCollection.updateOne(
+                { _id: new ObjectId(requestId) },
+                { $set: updatePayload }
+            );
+            if (result.matchedCount === 0) {
+                return res.status(404).json({ error: "Adoption request not found" });
+            }
+            res.json({ message: "Adoption request updated successfully" });
         });
 
         // delete adoption request
