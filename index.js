@@ -3,7 +3,6 @@ const app = express()
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const dotenv = require('dotenv');
-const { JWKSInvalid } = require('jose-cjs/errors');
 const { createRemoteJWKSet, jwtVerify } = require('jose-cjs');
 dotenv.config();
 const PORT = process.env.PORT || 4000;
@@ -15,7 +14,7 @@ app.use(express.json());
 
 const uri = process.env.DATABASE_URL;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -25,9 +24,11 @@ const client = new MongoClient(uri, {
 });
 
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+// const FRONTEND_URL = process.env.FRONTEND_URL;
 
-const JWKS = createRemoteJWKSet(new URL(`${FRONTEND_URL}/api/auth/jwks`));
+const JWKS = createRemoteJWKSet(
+    new URL('https://petnearly.vercel.app/api/auth/jwks')
+);
 
 
 const verifyToken = async (req, res, next) => {
