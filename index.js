@@ -3,6 +3,8 @@ const app = express()
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const dotenv = require('dotenv');
+const { JWKSInvalid } = require('jose-cjs/errors');
+const { createRemoteJWKSet, jwtVerify } = require('jose-cjs');
 dotenv.config();
 const PORT = process.env.PORT || 4000;
 
@@ -22,6 +24,37 @@ const client = new MongoClient(uri, {
     }
 });
 
+
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+const JWKS = createRemoteJWKSet(new URL(`${FRONTEND_URL}/api/auth/jwks`));
+
+
+const verifyToken = async (req, res, next) => {
+    const authHeader = req?.headers?.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ error: "Authorization access denied" });
+    }
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ error: "Authorization access denied" });
+    }
+
+
+    try {
+        const { payload } = await jwtVerify(token, JWKS,);
+        req.user = payload;
+        next();
+    } catch (error) {
+        return res.status(401).json({ error: "Forbidden" });
+    }
+
+};
+
+
+
+
 async function run() {
     try {
         await client.connect();
@@ -32,7 +65,6 @@ async function run() {
         // get all pets with optional search, filter, and sorting
         app.get('/all-pets', async (req, res) => {
             const { search, species, sortBy } = req.query;
-            console.log("Received query parameters:", { search, species, sortBy });
             let query = {};
             try {
                 if (search) {
@@ -49,26 +81,23 @@ async function run() {
                 }
                 res.json(pets || []);
             } catch (error) {
-                console.error("Error fetching pets:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
 
         // add a new pet
-        app.post('/all-pets', async (req, res) => {
+        app.post('/all-pets', verifyToken, async (req, res) => {
             const petData = req.body;
-            console.log("Received pet data:", petData);
             try {
                 const result = await allPetsCollection.insertOne(petData);
                 res.status(201).json({ message: "Pet added successfully", petId: result.insertedId });
             } catch (error) {
-                console.error("Error adding pet:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
 
         // delete from all pets collection
-        app.delete('/all-pets/:petId', async (req, res) => {
+        app.delete('/all-pets/:petId', verifyToken, async (req, res) => {
             const { petId } = req.params;
             try {
                 const result = await allPetsCollection.deleteOne({ _id: new ObjectId(petId) });
@@ -77,13 +106,12 @@ async function run() {
                 }
                 res.json({ message: "Pet deleted successfully" });
             } catch (error) {
-                console.error("Error deleting pet:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
 
         // find one pet by id
-        app.get('/all-pets/:petId', async (req, res) => {
+        app.get('/all-pets/:petId', verifyToken, async (req, res) => {
             const { petId } = req.params;
             const pet = await allPetsCollection.findOne({ _id: new ObjectId(petId) });
             if (!pet) {
@@ -93,14 +121,14 @@ async function run() {
         });
 
         // find matching pets by user id
-        app.get('/all-pets/user/:userId', async (req, res) => {
+        app.get('/all-pets/user/:userId', verifyToken, async (req, res) => {
             const { userId } = req.params;
             const pets = await allPetsCollection.find({ userId }).toArray();
             res.json(pets);
         });
 
         // pet status update
-        app.patch('/all-pets/:petId', async (req, res) => {
+        app.patch('/all-pets/:petId', verifyToken, async (req, res) => {
             const { petId } = req.params;
             const updatePayload = req.body
             const result = await allPetsCollection.updateOne(
@@ -114,7 +142,7 @@ async function run() {
         });
 
         // Request to adopt a pet
-        app.post('/adopt-pet', async (req, res) => {
+        app.post('/adopt-pet', verifyToken, async (req, res) => {
             const { name, username, email, message, pickUpDate, requestDate, statReq, petId, userId } = req.body;
             const adoptionRequest = {
                 name,
@@ -131,7 +159,6 @@ async function run() {
                 const result = await adoptionRequestsCollection.insertOne(adoptionRequest);
                 res.status(201).json({ message: "Adoption request submitted successfully", requestId: result.insertedId });
             } catch (error) {
-                console.error("Error submitting adoption request:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
@@ -139,32 +166,30 @@ async function run() {
 
 
         // get all adoption requests
-        app.get('/adopt-pet/:userId', async (req, res) => {
+        app.get('/adopt-pet/:userId', verifyToken, async (req, res) => {
             const { userId } = req.params;
             try {
                 const requests = await adoptionRequestsCollection.find({ userId }).toArray();
                 res.json(requests);
             } catch (error) {
-                console.error("Error fetching adoption requests:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
 
         // get adoption requests for a specific pet
-        app.get('/adopt-pet/pet/:petId', async (req, res) => {
+        app.get('/adopt-pet/pet/:petId', verifyToken, async (req, res) => {
             const { petId } = req.params;
             try {
                 const requests = await adoptionRequestsCollection.find({ petId }).toArray();
                 res.json(requests || []);
             } catch (error) {
-                console.error("Error fetching adoption requests for pet:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
 
 
 
-        app.patch('/adopt-pet/:requestId', async (req, res) => {
+        app.patch('/adopt-pet/:requestId', verifyToken, async (req, res) => {
             const { requestId } = req.params;
             const updatePayload = req.body
             const result = await adoptionRequestsCollection.updateOne(
@@ -178,7 +203,7 @@ async function run() {
         });
 
         // delete adoption request
-        app.delete('/adopt-pet/:requestId', async (req, res) => {
+        app.delete('/adopt-pet/:requestId', verifyToken, async (req, res) => {
             const { requestId } = req.params;
             try {
                 const result = await adoptionRequestsCollection.deleteOne({ _id: new ObjectId(requestId) });
@@ -187,7 +212,6 @@ async function run() {
                 }
                 res.json({ message: "Adoption request deleted successfully" });
             } catch (error) {
-                console.error("Error deleting adoption request:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
