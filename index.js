@@ -1,4 +1,5 @@
 const express = require('express')
+const axios = require('axios');
 const app = express()
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -24,10 +25,11 @@ const client = new MongoClient(uri, {
 });
 
 
-// const FRONTEND_URL = process.env.FRONTEND_URL;
+const FRONTEND_URL = process.env.FRONTEND_URL;
+console.log("FRONTEND_URL:", FRONTEND_URL);
 
 const JWKS = createRemoteJWKSet(
-    new URL('https://petnearly.vercel.app/api/auth/jwks')
+    new URL(`${FRONTEND_URL}/api/auth/jwks`)
 );
 
 
@@ -52,6 +54,9 @@ const verifyToken = async (req, res, next) => {
     }
 
 };
+
+
+
 
 
 
@@ -91,10 +96,19 @@ async function run() {
             const petData = req.body;
             try {
                 const result = await allPetsCollection.insertOne(petData);
+                axios.post(`${FRONTEND_URL}/api/revalidate`, { action: "new-added-pet" }).catch((error) => {
+                    console.error("Error revalidating cache:", error);
+                });
                 res.status(201).json({ message: "Pet added successfully", petId: result.insertedId });
             } catch (error) {
                 res.status(500).json({ error: "Internal Server Error" });
             }
+        });
+
+        // console test
+        app.get('/test', (req, res) => {
+            const consoleMessage = FRONTEND_URL
+            res.json({ message: consoleMessage });
         });
 
         // delete from all pets collection
